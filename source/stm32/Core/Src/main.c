@@ -21,7 +21,13 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <string.h>
 
+#include "EPD_1in54_V2.h"
+#include "EPD_Test.h"
+#include "Debug.h"
+#include "DEV_Config.h"
+#include "GUI_PAINT.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -93,20 +99,57 @@ int main(void)
   MX_SPI1_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
-  EPD_1IN54B_V2_Init();
+
+  printf("EPD_1in54_V2_test Demo\r\n");
+  DEV_Module_Init();
+
+  printf("e-Paper Init and Clear...\r\n");
+  EPD_1IN54_V2_Init();
+  EPD_1IN54_V2_Clear();
+  DEV_Delay_ms(500);
+
+  UBYTE *BlackImage;
+  BlackImage = (UBYTE*) malloc(EPD_1IN54_V2_HEIGHT * EPD_1IN54_V2_WIDTH / 8);
+  if(BlackImage == NULL) {
+    // Error handling here
+  }
+
+  // Initialize the BlackImage buffer
+  //memset(BlackImage, 0xff, EPD_1IN54_V2_HEIGHT * EPD_1IN54_V2_WIDTH / 8);
+
+  printf("Paint_NewImage\r\n");
+  Paint_NewImage(BlackImage, EPD_1IN54_V2_WIDTH, EPD_1IN54_V2_HEIGHT, 270, WHITE);
+  Paint_SelectImage(BlackImage);
+  Paint_Clear(WHITE);
+
+  // 2.Drawing on the image
+  Paint_DrawPoint(5, 10, BLACK, DOT_PIXEL_1X1, DOT_STYLE_DFT);
+  Paint_DrawPoint(5, 25, BLACK, DOT_PIXEL_2X2, DOT_STYLE_DFT);
+  Paint_DrawPoint(5, 40, BLACK, DOT_PIXEL_3X3, DOT_STYLE_DFT);
+  Paint_DrawPoint(5, 55, BLACK, DOT_PIXEL_4X4, DOT_STYLE_DFT);
+
+
+  EPD_1IN54_V2_Display(BlackImage);
+  DEV_Delay_ms(2000);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
-	  HAL_GPIO_TogglePin (LD3_GPIO_Port,LD3_Pin);
-	  HAL_Delay (100);   /* Insert delay 100 ms */
-
-
     /* USER CODE END WHILE */
+	  Paint_SelectImage(BlackImage);
+	  Paint_Clear(WHITE);
 
+	  // 2.Drawing on the image
+	  Paint_DrawPoint(5, 10, BLACK, DOT_PIXEL_1X1, DOT_STYLE_DFT);
+	  Paint_DrawPoint(5, 25, BLACK, DOT_PIXEL_2X2, DOT_STYLE_DFT);
+	  Paint_DrawPoint(5, 40, BLACK, DOT_PIXEL_3X3, DOT_STYLE_DFT);
+	  Paint_DrawPoint(5, 55, BLACK, DOT_PIXEL_4X4, DOT_STYLE_DFT);
+
+
+	  EPD_1IN54_V2_Display(BlackImage);
+	  DEV_Delay_ms(2000);
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */

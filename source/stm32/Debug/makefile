@@ -12,6 +12,7 @@ RM := rm -rf
 -include Drivers/STM32F0xx_HAL_Driver/Src/subdir.mk
 -include Core/Startup/subdir.mk
 -include Core/Src/subdir.mk
+-include Core/Inc/Fonts/subdir.mk
 -include objects.mk
 
 ifneq ($(MAKECMDGOALS),clean)
@@ -60,8 +61,8 @@ all: main-build
 main-build: e-paper-test.elf secondary-outputs
 
 # Tool invocations
-e-paper-test.elf e-paper-test.map: $(OBJS) $(USER_OBJS) /home/ubunubunubu/STM32CubeIDE/workspace_1.12.0/e-paper-test/STM32F042K6TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "e-paper-test.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0 -T"/home/ubunubunubu/STM32CubeIDE/workspace_1.12.0/e-paper-test/STM32F042K6TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="e-paper-test.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+e-paper-test.elf e-paper-test.map: $(OBJS) $(USER_OBJS) fail-specified-linker-script-missing makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "e-paper-test.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0 --specs=nosys.specs -Wl,-Map="e-paper-test.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
