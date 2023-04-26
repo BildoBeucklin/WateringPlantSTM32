@@ -61,6 +61,10 @@ void Error_Handler(void);
 #define ADC_MOIST1_GPIO_Port GPIOB
 #define ADC_MOIST2_Pin GPIO_PIN_1
 #define ADC_MOIST2_GPIO_Port GPIOB
+#define LD3_Pin GPIO_PIN_3
+#define LD3_GPIO_Port GPIOB
+#define LD4_Pin GPIO_PIN_4
+#define LD4_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
