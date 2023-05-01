@@ -27,10 +27,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-	char time[30];
-	char date[30];
-RTC_TimeTypeDef sTime;
- RTC_DateTypeDef sDate;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -50,13 +47,9 @@ DMA_HandleTypeDef hdma_adc;
 
 RTC_HandleTypeDef hrtc;
 
-TIM_HandleTypeDef htim2;
-TIM_HandleTypeDef htim16;
-
-UART_HandleTypeDef huart2;
-
 /* USER CODE BEGIN PV */
 uint8_t isInit_over = FALSE;
+uint8_t isLight_On =  FALSE;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -65,9 +58,7 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_ADC_Init(void);
 static void MX_RTC_Init(void);
-static void MX_USART2_UART_Init(void);
-static void MX_TIM16_Init(void);
-static void MX_TIM2_Init(void);
+static void MX_NVIC_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -75,137 +66,87 @@ static void MX_TIM2_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-int _write(int file, char *ptr, int len)
-{
-	HAL_UART_Transmit( &huart2, (uint8_t*)ptr, len, HAL_MAX_DELAY );
-	return len;
-}
-
-
-// Callback: timer has rolled over
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-	uint32_t delay_tick;
-
-  //Check is ready to work
-  if(isInit_over)
-  {
-	  // Check which version of the timer triggered this callback and toggle LED
-	  if (htim == &htim16 )
-	  {
-	  /**
-	   * test soil moisture
-		*/
-		  // get raw data from sensors
-		  HAL_ADC_Start(&hadc);
-		  HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
-		  int moist_1_sens = HAL_ADC_GetValue(&hadc);
-		  HAL_ADC_Start(&hadc);
-		  HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
-		  int moist_2_sens = HAL_ADC_GetValue(&hadc);
-		  //convert values to readable ones
-		  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
-		  HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
-		  printf("Timer16\r\n");
-		  printf("Date: %02d.%02d.%02d\t",sDate.Date,sDate.Month,sDate.Year);
-		  printf("Time: %02d.%02d.%02d\r\n",sTime.Hours,sTime.Minutes,sTime.Seconds);
-		  delay_tick = 0;
-		  while((moist_1_sens > 2000 && moist_2_sens > 2000) && delay_tick < 20000-1)
-		  {
-			  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, 1);
-			  delay_tick++;
-		  }
-		  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
-		  printf("\t\tTime: %02d.%02d.%02d\r\n",sTime.Hours,sTime.Minutes,sTime.Seconds);
-		  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, 0);
-	  }
-	  /**
-	   * enter the Standby mode after a time
-	    */
-	  else if (htim == &htim2)
-	  {
-		    /* Stop the timer interrupt */
-		    HAL_TIM_Base_Stop_IT(&htim2);
-		    HAL_TIM_Base_Stop_IT(&htim16);
-		    /* Activate the RTC alarm again */
-			/** Enable the Alarm A
-			  */
-			  RTC_AlarmTypeDef sAlarm = {0};
-			  sAlarm.AlarmTime.Hours = 0x0;
-			  sAlarm.AlarmTime.Minutes = 0x5;
-			  sAlarm.AlarmTime.Seconds = 0x0;
-			  sAlarm.AlarmTime.SubSeconds = 0x0;
-			  sAlarm.AlarmTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
-			  sAlarm.AlarmTime.StoreOperation = RTC_STOREOPERATION_RESET;
-			  sAlarm.AlarmMask = RTC_ALARMMASK_MINUTES;
-			  sAlarm.AlarmSubSecondMask = RTC_ALARMSUBSECONDMASK_ALL;
-			  sAlarm.AlarmDateWeekDaySel = RTC_ALARMDATEWEEKDAYSEL_DATE;
-			  sAlarm.AlarmDateWeekDay = 0x1;
-			  sAlarm.Alarm = RTC_ALARM_A;
-			  if (HAL_RTC_SetAlarm_IT(&hrtc, &sAlarm, RTC_FORMAT_BCD) != HAL_OK)
-			  {
-				Error_Handler();
-			  }
-
-		    // Disable all wake-up pins
-		    HAL_PWR_DisableWakeUpPin(PWR_WAKEUP_PIN1);
-		    HAL_PWR_DisableWakeUpPin(PWR_WAKEUP_PIN2);
-		    HAL_PWR_DisableWakeUpPin(PWR_WAKEUP_PIN4);
-		    HAL_PWR_DisableWakeUpPin(PWR_WAKEUP_PIN6);
-		    HAL_PWR_DisableWakeUpPin(PWR_WAKEUP_PIN7);
-
-		    //set pins for standby
-		    HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, 0);
-		    HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, 0);
-
-			HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
-			HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
-			printf("Timer2\r\n");
-			printf("Date: %02d.%02d.%02d\t",sDate.Date,sDate.Month,sDate.Year);
-			printf("Time: %02d.%02d.%02d\r\n",sTime.Hours,sTime.Minutes,sTime.Seconds);
-
-		    /* Enter Standby mode */
-		    HAL_PWR_EnterSTANDBYMode();
-	  }
-	  else
-	  {  }
-  }
-  else
-  {
-
-  }
-}
-
-/**
- * Start normal routine
-  */
 void HAL_RTC_AlarmAEventCallback(RTC_HandleTypeDef *hrtc)
 {
-	  /* Exit standby mode */
-	  /* Clear the RTC Alarm interrupt flag */
-	  __HAL_RTC_ALARM_CLEAR_FLAG(hrtc, RTC_FLAG_ALRAF);
+	// Wakeup from Stopmode
+	  SystemClock_Config();
+	  HAL_ResumeTick();
 
-	  // Re-enable all wake-up pins
-	  HAL_PWR_EnableWakeUpPin(PWR_WAKEUP_PIN1);
-	  HAL_PWR_EnableWakeUpPin(PWR_WAKEUP_PIN2);
-	  HAL_PWR_EnableWakeUpPin(PWR_WAKEUP_PIN4);
-	  HAL_PWR_EnableWakeUpPin(PWR_WAKEUP_PIN6);
-	  HAL_PWR_EnableWakeUpPin(PWR_WAKEUP_PIN7);
+	  RTC_AlarmTypeDef sAlarm;
+	  GPIO_InitTypeDef GPIO_InitStruct;
+
+	  GPIO_InitStruct.Pin = GPIO_PIN_7;
+	  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+	  GPIO_InitStruct.Pull = GPIO_NOPULL;
+	  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+	  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+	  HAL_GPIO_WritePin(pwrADC_3_3v_GPIO_Port, pwrADC_3_3v_Pin, 1);
+	  // Configure PB0 and PB1 as analog inputs
+	  GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1;
+	  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+	  GPIO_InitStruct.Pull = GPIO_NOPULL;
+	  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+	  // Get ADC Moisture Values
+	  HAL_ADC_Start(&hadc);
+	  HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
+	  int moist_1_sens = HAL_ADC_GetValue(&hadc);
+
+	  HAL_ADC_Start(&hadc);
+	  HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
+	  int moist_2_sens = HAL_ADC_GetValue(&hadc);
+
+	  //Activate the pump while the the moisture is to low
+	  while(moist_1_sens < 2650 && moist_2_sens < 2500)
+	  {
+	    HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, 1);
+		HAL_ADC_Start(&hadc);
+		HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
+		moist_1_sens = HAL_ADC_GetValue(&hadc);
+
+		HAL_ADC_Start(&hadc);
+		HAL_ADC_PollForConversion(&hadc, HAL_MAX_DELAY);
+		moist_2_sens = HAL_ADC_GetValue(&hadc);
+	  }
 
 
-	  /* Disable SleepOnExit bit */
-	  HAL_PWR_DisableSleepOnExit();
+	  HAL_GPIO_WritePin(pwrADC_3_3v_GPIO_Port, pwrADC_3_3v_Pin, 0);
+	  GPIOB->MODER &= ~(GPIO_MODER_MODER7_Msk); // set mode to input mode (reset state)
+	  GPIOB->PUPDR &= ~(GPIO_PUPDR_PUPDR7_Msk); // disable pull-up and pull-down resistors
+	  // Configure the GPIO pins as analog inputs
+	  GPIO_InitStruct.Pin = GPIO_PIN_0 | GPIO_PIN_1;
+	  GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
+	  GPIO_InitStruct.Pull = GPIO_NOPULL;
+	  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-	  /* Disable the Alarm */
-	  HAL_RTC_DeactivateAlarm(hrtc, RTC_ALARM_A);
+	  //Turn on light and stop for 9h or turn of and wakeup for 14
+	  if (isLight_On == TRUE)
+	  {
+		  HAL_RTC_GetAlarm(hrtc,&sAlarm,RTC_ALARM_A,FORMAT_BIN);
+		  if(sAlarm.AlarmTime.Minutes>55) {
+		    sAlarm.AlarmTime.Minutes=0;
+		  }else{
+		    sAlarm.AlarmTime.Minutes=sAlarm.AlarmTime.Minutes+2;
+		  }
+		    while(HAL_RTC_SetAlarm_IT(hrtc, &sAlarm, FORMAT_BIN)!=HAL_OK){}
+		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, 0);
+		  isLight_On = FALSE;
+	  }
+	  else
+	  {
+		  HAL_RTC_GetAlarm(hrtc,&sAlarm,RTC_ALARM_A,FORMAT_BIN);
+		  if(sAlarm.AlarmTime.Minutes>55) {
+		    sAlarm.AlarmTime.Minutes=0;
+		  }else{
+		    sAlarm.AlarmTime.Minutes=sAlarm.AlarmTime.Minutes+1;
+		  }
+		    while(HAL_RTC_SetAlarm_IT(hrtc, &sAlarm, FORMAT_BIN)!=HAL_OK){}
 
-	  /* Start a second timer interrupt to enter standby mode again */
-	  HAL_TIM_Base_Start_IT(&htim2);
-	  HAL_TIM_Base_Start_IT(&htim16);
-	  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, 1);
-	  printf("RTC\r\n");
-	  printf("Date: %02d.%02d.%02d\t",sDate.Date,sDate.Month,sDate.Year);
-	  printf("Time: %02d.%02d.%02d\r\n",sTime.Hours,sTime.Minutes,sTime.Seconds);
+		  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, 1);
+		  isLight_On = TRUE;
+	  }
+
+	  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, 0);
 
 }
 
@@ -243,30 +184,20 @@ int main(void)
   MX_DMA_Init();
   MX_ADC_Init();
   MX_RTC_Init();
-  MX_USART2_UART_Init();
-  MX_TIM16_Init();
-  MX_TIM2_Init();
+
+  /* Initialize interrupts */
+  MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_Base_Start_IT(&htim16);
-  HAL_TIM_Base_Start_IT(&htim2);
-
-  HAL_GPIO_WritePin(LD3_GPIO_Port, LD3_Pin, 0);
-  HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin, 1);
-  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
-  HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
-  sprintf(date,"Date: %02d.%02d.%02d\t",sDate.Date,sDate.Month,sDate.Year);
-  sprintf(time,"Time: %02d.%02d.%02d\r\n",sTime.Hours,sTime.Minutes,sTime.Seconds);
-  printf("Date: %02d.%02d.%02d\t",sDate.Date,sDate.Month,sDate.Year);
-  printf("Time: %02d.%02d.%02d\r\n",sTime.Hours,sTime.Minutes,sTime.Seconds);
-
   isInit_over = TRUE;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
+	    HAL_SuspendTick();
+	    HAL_PWR_EnterSTOPMode(PWR_LOWPOWERREGULATOR_ON, PWR_STOPENTRY_WFI);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -318,6 +249,23 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief NVIC Configuration.
+  * @retval None
+  */
+static void MX_NVIC_Init(void)
+{
+  /* RTC_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(RTC_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(RTC_IRQn);
+  /* RCC_CRS_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(RCC_CRS_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(RCC_CRS_IRQn);
+  /* DMA1_Channel1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 }
 
 /**
@@ -434,7 +382,7 @@ static void MX_RTC_Init(void)
   sDate.WeekDay = RTC_WEEKDAY_MONDAY;
   sDate.Month = RTC_MONTH_JANUARY;
   sDate.Date = 0x1;
-  sDate.Year = 0x1;
+  sDate.Year = 0x0;
 
   if (HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BCD) != HAL_OK)
   {
@@ -444,12 +392,13 @@ static void MX_RTC_Init(void)
   /** Enable the Alarm A
   */
   sAlarm.AlarmTime.Hours = 0x0;
-  sAlarm.AlarmTime.Minutes = 0x5;
+  sAlarm.AlarmTime.Minutes = 0x1;
   sAlarm.AlarmTime.Seconds = 0x0;
   sAlarm.AlarmTime.SubSeconds = 0x0;
   sAlarm.AlarmTime.DayLightSaving = RTC_DAYLIGHTSAVING_NONE;
   sAlarm.AlarmTime.StoreOperation = RTC_STOREOPERATION_RESET;
-  sAlarm.AlarmMask = RTC_ALARMMASK_MINUTES;
+  sAlarm.AlarmMask = RTC_ALARMMASK_DATEWEEKDAY|RTC_ALARMMASK_HOURS
+                              |RTC_ALARMMASK_SECONDS;
   sAlarm.AlarmSubSecondMask = RTC_ALARMSUBSECONDMASK_ALL;
   sAlarm.AlarmDateWeekDaySel = RTC_ALARMDATEWEEKDAYSEL_DATE;
   sAlarm.AlarmDateWeekDay = 0x1;
@@ -465,118 +414,6 @@ static void MX_RTC_Init(void)
 }
 
 /**
-  * @brief TIM2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM2_Init(void)
-{
-
-  /* USER CODE BEGIN TIM2_Init 0 */
-
-  /* USER CODE END TIM2_Init 0 */
-
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-
-  /* USER CODE BEGIN TIM2_Init 1 */
-
-  /* USER CODE END TIM2_Init 1 */
-  htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 3000-1;
-  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 30000-1;
-  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM2_Init 2 */
-
-  /* USER CODE END TIM2_Init 2 */
-
-}
-
-/**
-  * @brief TIM16 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM16_Init(void)
-{
-
-  /* USER CODE BEGIN TIM16_Init 0 */
-
-  /* USER CODE END TIM16_Init 0 */
-
-  /* USER CODE BEGIN TIM16_Init 1 */
-
-  /* USER CODE END TIM16_Init 1 */
-  htim16.Instance = TIM16;
-  htim16.Init.Prescaler = 1000-1;
-  htim16.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim16.Init.Period = 10000-1;
-  htim16.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim16.Init.RepetitionCounter = 0;
-  htim16.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim16) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN TIM16_Init 2 */
-
-  /* USER CODE END TIM16_Init 2 */
-
-}
-
-/**
-  * @brief USART2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART2_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART2_Init 0 */
-
-  /* USER CODE END USART2_Init 0 */
-
-  /* USER CODE BEGIN USART2_Init 1 */
-
-  /* USER CODE END USART2_Init 1 */
-  huart2.Instance = USART2;
-  huart2.Init.BaudRate = 38400;
-  huart2.Init.WordLength = UART_WORDLENGTH_8B;
-  huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
-  huart2.Init.Mode = UART_MODE_TX_RX;
-  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART2_Init 2 */
-
-  /* USER CODE END USART2_Init 2 */
-
-}
-
-/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -584,11 +421,6 @@ static void MX_DMA_Init(void)
 
   /* DMA controller clock enable */
   __HAL_RCC_DMA1_CLK_ENABLE();
-
-  /* DMA interrupt init */
-  /* DMA1_Channel1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 
 }
 
@@ -605,14 +437,16 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOF_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, LD3_Pin|LD4_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : LD3_Pin LD4_Pin */
-  GPIO_InitStruct.Pin = LD3_Pin|LD4_Pin;
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(pwrADC_3_3v_GPIO_Port, pwrADC_3_3v_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pins : LD3_Pin LD4_Pin pwrADC_3_3v_Pin */
+  GPIO_InitStruct.Pin = LD3_Pin|LD4_Pin|pwrADC_3_3v_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
